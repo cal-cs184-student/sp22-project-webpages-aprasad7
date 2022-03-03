@@ -1,0 +1,136 @@
+/*NOTE FLEXBOX CODE/UNDERSTANDING ADAPTED FROM https://www.youtube.com/watch?v=fYq5PXgSsbE This helped me understand flexboxes better!*/
+.flexbox-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.flexbox-item {
+    margin: 10px;
+    border: 3px solid #333;
+    background-color: #dfdfdf;
+}
+
+.flexbox-item-intro {
+    flex: 1;
+    width: 150px;
+}
+
+.flexbox-item-about {
+    flex: 1;
+    font-size: 1px;
+    min-height: 250px;
+    width: 150px;
+}
+
+.flexbox-item-work {
+    min-height: 100px;
+}
+
+.flexbox-item-w1 {
+    min-height: 100px;
+}
+
+.flexbox-item-w2 {
+    min-height: 100px;
+}
+
+.flexbox-item-w3 {
+    min-height: 100px;
+}
+
+.flexbox-item-contact {
+    min-height: 100px;
+    flex: 1;
+}
+
+html {
+    height: 100%;
+    background-color: #333;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.flexbox-item-1 {
+    min-height: 100px;
+}
+
+.flexbox-item-2 {
+    min-height: 100px;
+}
+
+.flexbox-item-3 {
+    min-height: 100px;
+}
+
+.flexbox-container {
+    position: relative;
+    background-color: cornflowerblue;
+}
+
+.flexbox-item {
+    position: relative;
+    width: 200px;
+    margin: 10px;
+    border: 3px solid #333;
+    background-color: #dfdfdf;
+    font-size: 100px;
+    display: flex;
+    justify-content: center;
+}
+
+.flexbox-item::before {
+    position: absolute;
+    color: black;
+    font-size: 25px;
+    top: 10px;
+    left: 15px;
+}
+
+.flexbox-item::after {
+    position: absolute;
+    color: yellow;
+    font-size: 50px;
+    top: 10px;
+    right: 15px;
+}
+.flexbox-item-intro::after {
+    content: "Hi! My name is Aditya Prasad, and I study CS!";
+}
+
+.flexbox-item-about::after {
+    content: " ABOUT ME: Computer science helps me draw the world. Before I started college, I thought that I wanted to be a physics researcher. I loved talking about marbles rolling down ramps, Gauss's Law, and electrons. Most of all, I loved visualizing these things in my head: the gas molecules rumbling inside of a container, quantum particles exchanging photons, and space-time. I soon realized that computer science is ALL of these things, and more!";
+    font-size: 15px;
+    color: black;
+}
+
+.flexbox-item-work::after {
+    content: 'Work Experience';
+    font-size: 28px;
+    color:black;
+}
+
+.flexbox-item-w1::after {
+    content: 'Software Engineer Intern @ Uber';
+    font-size: 25px;
+    color: red;
+}
+
+.flexbox-item-w2::after {
+    content: 'Software Engineer Intern @ CDK Global';
+    font-size: 25px;
+    color: red;
+}
+
+.flexbox-item-w3::after {
+    content: 'CS 61B/C Course Tutor';
+    font-size: 25px;
+    color: red;
+}
+
+.flexbox-item-contact::after {
+    content: 'Contact Me on Linkedin!';
+    font-size: 25px;
+    color: green;
+}

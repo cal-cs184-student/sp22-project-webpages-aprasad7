@@ -1,7 +1,246 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Project 2 here
-	</body>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+  <style>
+    body {
+      padding: 100px;
+      width: 1000px;
+      margin: auto;
+      text-align: left;
+      font-weight: 300;
+      font-family: 'Open Sans', sans-serif;
+      color: #121212;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: 'Source Sans Pro', sans-serif;
+    }
+  </style>
+  <title>CS 184 Mesh Editor</title>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+  <h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2022</h1>
+  <h1 align="middle">Project 2: Mesh Editor</h1>
+  <h2 align="middle">Aditya Prasad and Srinivasan Madhavan, CS184-seenu-aditya</h2>
+
+  <br><br>
+
+  <div>
+
+    <h2 align="middle">Overview</h2>
+    <p>Here we are again, completing another epic graphics project. As huge gamers, the more we learn in this class, the more we understand how studios like Polyphony Digital, Rockstar, and Naughty Dog are able to deliver such breathtaking computer graphics in real-time. Bezier curves - really just a generalization of linear interpolation applied to curves and surfaces - help developers design the overall geometry of an asset. These surfaces are subdivided into millions of polygons - triangles namely - to form a mesh structure. It’s extremely astonishing how modern game engines are able to traverse these meshes appropriately and apply global and local operations, like upsampling or splitting respectively. Through this project, we learned about a mesh’s linked list structure, which we traverse using half edges. Of course, these meshes need to be shaded appropriately and in a (mostly) efficient manner. That’s where the Phong model comes into play, helping minimize the cost of using truly ray-traced reflections. The Phong model relies on factors like specular, diffuse, and local shading, which in turn rely on normals - which should preferably be normals located at the vertices of the triangles in a mesh. Although not accurate scientifically, the Phong model produces nice results, and upsampling using techniques like loop subdivision improve mesh granularity as the developer pleases. This project combined all of these concepts into a single, cohesive package, leaving us stunned at the POWER of computers and their ability to produce life-like images.
+    </p>
+
+    <h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
+
+    <h3 align="middle">Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
+
+    <p>De Casteljau’s algorithm generates smooth curves via calls to a linear interpolation function given n control points in a recursive fashion. For example, consider we are given 4 control points. Connecting these 4 control points gives us 3 line segments. Then, we choose a parametric parameter t, which defines how we linearly interpolate for each of the 3 line segments (between the 2 points which define each of the 3 line segments). This generates 3 (n-1) control points, which can be used to create 2 line segments. We interpolate using t again to generate 1 line segment, which is interpolated again to generate a point which lies on the final curve (in other words, x(t)). In code, evaluateStep generates n-1 control points given n of them via lerping neighboring 3D vectors (points). evaluate1D calls evaluateStep successive times until we reach a single point on the Bezier curve. It is important to note that t must be between 0 and 1 (as it linearly interpolates). We did not run into any implementation issues here.
+
+    </p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="step1.png" align="middle" width="400px" />
+            <figcaption align="middle">First recursive call to generate 5 control points given 6.</figcaption>
+          </td>
+          <td>
+            <img src="step2.png" align="middle" width="400px" />
+            <figcaption align="middle">Second recursive call to generate 4 control points given 5.</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="step3.png" align="middle" width="400px" />
+            <figcaption align="middle">3 control points.</figcaption>
+          </td>
+          <td>
+            <img src="step4.png" align="middle" width="400px" />
+            <figcaption align="middle">Down to 2.</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="step5.png" align="middle" width="400px" />
+            <figcaption align="middle">Down to 1.</figcaption>
+          </td>
+          <td>
+            <img src="step6.png" align="middle" width="400px" />
+            <figcaption align="middle">Final Bezier curve.</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="modifed.png" align="middle" width="400px" />
+            <figcaption align="middle">A new Bezier curve with 6 control points.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+
+    <h3 align="middle">Part 2: Bezier surfaces with separable 1D de Casteljau subdivision</h3>
+    <p>In this section, we wanted to create Bezier surfaces by applying de Casteljau’s algorithm, which we implemented in Part 1, in both dimensions. It is called “separable” de Casteljau because it extends to two dimensions without change. We solved this by first applying de Casteljau’s algorithm across 1 dimension for a specific value, and then applied de Casteljau on the resulting points for another specific value to get a point on the surface. The one problem we had was conceptual - it is a little tricky to visualize how this works and justify it in your head, but once we locked down how this worked the implementation was pretty easy and we didn’t have problems.
+    </p>
+
+    <p>The de Casteljau algorithm extends to Bezier surfaces seamlessly. We first evaluate Bezier curves along one dimension as in part 1, with a specific “u” value (between 0 and 1), which results in n points that are along the opposite dimension. Then we evaluate the Bezier curve with these n points and using the “v” value (again between 0 and 1), resulting in a point on the surface. If we repeat this process for enough u and v values, we will end up with a Bezier surface. </p>
+
+    <img src="proj2-pt2-teapot.png" align="middle" width="400px" />
+    <figcaption align="middle">The teapot, drawn as a Bezier surface.</figcaption>
+    
+    <h2 align="middle">Section II: Sampling</h2>
+
+    <h3 align="middle">Part 3: Average normals for half-edge meshes</h3>
+
+    <p>Calculating area-weighted vertex normals gave us a solid introduction to traversing the mesh representation harnessed in this project. First, we need a way to traverse the faces which surround a specified vertex. We first start at the specified vertex’s half-edge. This half-edge’s face will definitely “surround” the given vertex. To get the next face, we get the twin of the current half-edge (which points in the opposite direction), and retrieve its next half-edge. This  next half-edge will definitely be in another face surrounding the given vertex because it is on the opposite of the previous half-edge, and the call to next ensures that we do not ever traverse the same half-edge twice (until we reach our starting point).This is accomplished via a do-while loop, because a regular while loop would simply terminate immediately. To calculate the area of a given face, we harness the cross product between 2 “sides” of the polygon (which gives us the area of the corresponding parallelogram), and divide by 2 to achieve a triangular area. When using this form, we notice that the cross product gives as a normal, as desired. The logic of this function was already mostly implemented for us in the staff-provided normal() function, except that it returns a unit vector. So, we used the same logic, except did not convert the vector to a unit vector, and for the sake of clarity, we found the magnitude of the calculated vector (divided by 2) and multiplied it by the given normal unit vector (although this was not necessary, since the cross product already gives us an area weighted normal). Normals are especially important for shading and Phong model reflections. 1 error which we encountered was using a while loop instead of a do-while loop, which we fixed because a while loop would terminate immediately instead of running the body at least once. We also remembered to NOT consider boundary faces.</p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="nonormals.png" align="middle" width="400px" />
+            <figcaption align="middle">Phong shading using vertex normals is not implemented.</figcaption>
+          </td>
+          <td>
+            <img src="normals.png" align="middle" width="400px" />
+            <figcaption align="middle">Phong shading using vertex normals implemented.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p>Using vertex normals allows the shading of the teapot mesh to appear “discrete” to a lesser extent, because now each vertex has a normal which is a weighted average of the normals of the faces surrounding it. In fact, this can be viewed as interpolating between faces of a mesh to attain a smoother appearance.
+    </p>
+
+    <h3 align="middle">Part 4: Half-edge flip</h3>
+    <p>In this part, we want to flip the shared edge between two triangles. This was best illustrated by a diagram so we drew a diagram and labeled all the objects on the two triangles and how they move. After we drew this diagram, we got references to every object we needed and reassigned it properly so that the edge was flipped.</p>
+    
+    <img src="edgeflipdiagram.png" align="middle" width="400px" />
+    <figcaption align="middle">Edge flip diagram.</figcaption>
+    
+    <p>We implemented the edge flip operation by listing out every halfedge, edge, face, and vertex and then reassigning these, based on a diagram that we drew where we displayed two adjacent triangles and the position of objects before and after. We ended up not having any bugs in our flip function, and we think that was because of the very helpful diagram we drew. We also wrote out every reassignment even if it did not change anything, which helped us not think as much. We first used the setNeighbors() function to reassign halfedges, then vertices, then faces, in that order.
+    </p>
+
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="proj2-pt4-beforeflips.png" align="middle" width="400px" />
+            <figcaption align="middle">Screenshot of the teapot mesh before flips.</figcaption>
+          </td>
+          <td>
+            <img src="proj2-pt4-afterflips.png" align="middle" width="400px" />
+            <figcaption align="middle">Screenshot of the teapot mesh after flips.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <h3 align="middle">Part 5: Half-edge split</h3>
+    <p>Unlike the flip operation, the edge split operation requires creating new mesh elements, making pointer manipulation slightly more involved. To manage the complexity of our program and strive for correctness, we harnessed the following before and after image.</p>
+    
+    <img src="edgesplitdiagram.png" align="middle" width="400px" />
+    <figcaption align="middle">Edge split diagram.</figcaption>
+
+    <p>We carefully retrieved the “previous” elements in our code, and used setNeighbors to set appropriate pointers based on the image. Faces’ half-edges were also assigned appropriately, as we had a bug in our code earlier which cause a triangle to disappear because we did not explicitly write out faces’ half edges. This explanation is short because it relies mostly on the image.
+    </p>
+    
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="beforesplit.png" align="middle" width="400px" />
+            <figcaption align="middle">The original mesh.</figcaption>
+          </td>
+          <td>
+            <img src="aftersplit.png" align="middle" width="400px" />
+            <figcaption align="middle">The mesh after some edge split operations.</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="aftersplitflips.png" align="middle" width="400px" />
+            <figcaption align="middle">The mesh after some edge split and flip operations.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <h3 align="middle">Part 6: Loop subdivision for mesh upsampling</h3>
+    <p>We implemented loop subdivision by following the directions in the spec and in the code. We first computed new positions for all the vertices in the input mesh. We first did this for existing vertices by using the equation (1 - n * u) * (old position) + u * (neighbor positions’ sum), and we stored the result in the vertex’s newPosition field. We then iterated over the existing edges and found the position of a new vertex for each one, since we are splitting each edge at the midpoint and adding a vertex there. We then split every edge in the mesh, making sure that we only split old edges (we do so by ensuring that the first edges added by the splitEdge() function have isNew=true, so the loop will break as soon as the first split edges are encountered). We then flip all edges that are new and connect an old and a new vertex - we do this by checking that the isNew flag is true and manually check that there is only one new vertex among the two. Finally, we copy each vertex’s newPosition into position, effectively moving it to its new position.
+    </p>
+    <p>After loop subdivision, sharp edges and corners smooth out. The mesh looks smoother immediately if there are many edges/vertices already, and in the case of the cube, looks almost spherical after a few subdivisions. We can increase the speed of smoothing by pre-splitting sharp edges and then applying loop subdivision.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="proj2-pt6-cowbeforesub.png" align="middle" width="400px" />
+            <figcaption align="middle">Cow mesh before loop subdivision.</figcaption>
+          </td>
+          <td>
+            <img src="proj2-pt6-cowaftersub.png" align="middle" width="400px" />
+            <figcaption align="middle">Cow mesh after loop subdivision. Becomes pretty smooth!</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="proj2-pt6-cubebeforesub.png" align="middle" width="400px" />
+            <figcaption align="middle">Cube mesh before loop subdivision.</figcaption>
+          </td>
+          <td>
+            <img src="proj2-pt6-cubeaftersub.png" align="middle" width="400px" />
+            <figcaption align="middle">Cube mesh after loop subdivision. Not smooth yet, but getting there.</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p>For cube.dae, we noticed that splitting every “face” edge led to a symmetric subdivision, resulting in a shape which is a mix of a cube and a sphere. This makes sense because by splitting every “face” edge, we end up with a symmetrical mesh, which then leads to a symmetrical mesh after subdivisions. If we don’t start with a symmetrical mesh, then even though our loop subdivision smooths out edges and corners, it is unable to work magic and make an asymmetric mesh symmetric.
+    </p>
+    <div align="middle">
+      <table style="width=100%">
+        <tr>
+          <td>
+            <img src="proj2-pt6-cubebeforesub.png" align="middle" width="400px" />
+            <figcaption align="middle">Normal cube mesh, no flips or splits.</figcaption>
+          </td>
+          <td>
+            <img src="proj2-pt6-cubesplit.png" align="middle" width="400px" />
+            <figcaption align="middle">Cube mesh after splitting each face.</figcaption>
+          </td>
+        </tr>
+        <br>
+        <tr>
+          <td>
+            <img src="proj2-pt6-cubeasymmetric.png" align="middle" width="400px" />
+            <figcaption align="middle">Normal cube mesh yields asymmetric results.</figcaption>
+          </td>
+          <td>
+            <img src="proj2-pt6-cubesymmetric.png" align="middle" width="400px" />
+            <figcaption align="middle">Split cube mesh yields symmetric results!</figcaption>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p>We did not implement any extra credit features.
+    </p>
+
+</body>
+
 </html>
