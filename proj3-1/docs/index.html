@@ -1,0 +1,277 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>  
+    div.padded {  
+      padding-top: 0px;  
+      padding-right: 100px;  
+      padding-bottom: 0.25in;  
+      padding-left: 100px;  
+    }  
+  </style> 
+<title>Srinivasan Madhavan and Aditya Prasad  |  CS 184</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="style.css" media="screen" />
+</head>
+<body>
+<br />
+<h1 align="middle">Assignment 3: PathTracer</h1>
+    <h2 align="middle">Srinivasan Madhavan and Aditya Prasad</h2>
+
+    <div class="padded">
+        <p>RAYS ARE BEING TRACED! SCENES ARE BEING ILLUMINATED! THAT BUNNY LOOKS LIKE REAL-LIFE! BUT HOW??!! It all comes down to a different way of rendering. We shoot a light ray through a pixel, find its closest intersection point, and compute a light/color value, seemingly the "reverse" of traditional rasterization. These rays (like rays from a camera) can intersect various primitives, like triangles, quads, and spheres, and we need to calculate where exactly the parametric ray hits each. To quickly determine the closest intersection with a primitive, we recursively organize objects into groups, each with a bounding volume. Once we find an intersection, that's where the fun begins. We first have light emitted directly from that point. Then, we trace rays from that point to a direct light, so that we can calculate immediate reflections and diffusion. But, how do we simulate the real world? We need INFINITE bounces, and through the help of Monte Carlo estimators and the path tracing algorithm, we do close to that!   </p>
+        
+
+    <h2 align="middle">Part 1: Ray Generation and Intersection</h2>
+        <p>In this part, we generated camera rays from image coordinates using camera space and world space transforms, wrote a Monte Carlo estimator for sampling each pixel, and wrote algorithms for ray-triangle and ray-sphere intersection. We didn’t have any problems with the first three tasks, but one problem we had to overcome was our ray-sphere intersection for CBspheres_lambertian gave the spheres a yellow tinge, which we realized was because the intersection normal’s direction should be flipped.</p>
+        <p>The first part of the rendering pipeline is ray generation. We have normalized image coordinates and we want to ultimately shoot a ray through world space such that it intersects with this point, so that we can simulate light hitting the camera’s sensor. The first step to do this is transforming our normalized image coordinates into camera space. We do this by first centering the image coordinates so they are in the range [-0.5, 0.5] in both dimensions, and then we scale the x and y coordinates appropriately to get the x and y coordinates of the camera ray as it passes through the sensor. The z coordinate is always -1. We then transform this camera space vector into world space by applying the c2w matrix, and finally set the origin of the ray to pos, the position of the camera in world space. This section of the pipeline takes normalized image coordinates and outputs a ray in world space that strikes the sensor/camera image in that location.</p>
+        <p>The second crucial part of the rendering pipeline for part 1 is the triangle intersection algorithm, where we want to see if a ray will intersect a triangle, and if so, where. For this part, we embedded the triangle within a plane and computed the point of intersection between the plane and the ray (line). We did this by computing the normal vector of the plane, which we find by taking the cross product of two legs of the triangle. We then compute the “time of intersection” using the formula (p’ - o) * n / (d * n), where o and d are the origin and direction of the ray and the * operator means dot product, from which we can compute the actual point of intersection by plugging into the ray equation. All this tells us is that the ray intersects the plane of the triangle, so we additionally need to check that the point of intersection is inside the triangle, which we can do using methods from Assignment 1. Once we verify that it is inside the triangle, we populate the isect struct which stores information about the intersection, such as the bsdf, the new max_t of the ray, the intersection normal which is a barycentric interpolation of the normals at each vertex of the triangle, and the primitive.</p>
+
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../xcode/CBspheres.png" width="480px" />
+                    <figcaption align="middle">Ray-sphere intersection works with normal sampling!</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../xcode/CBempty.png" width="480px" />
+                    <figcaption align="middle">Ray-triangle intersection works with normal sampling!</figcaption>
+                </tr>
+            </table>
+        </div>
+
+        <h2 align="middle">Part 2: BVH</h2>
+        <p>In part 2, we wrote an algorithm to construct a BVH, which is essentially a tree of bounding boxes, which lets us quickly discard large chunks of primitives so that we don’t need to check the intersections on them. We then wrote an algorithm to determine whether a ray intersects the BVH, where we recursively traverse all the bounding boxes, do a computationally quick check to see if it intersects the bounding box, and then if it does, to check if it intersects any primitives. The main problem we had with this part was that we were not computing the middle element to split on properly, so we were getting segfaults on some images and our cow had a visor. We fixed this by doing the middle element calculation outside the sorting loop.
+        </p>
+        <p>Our BVH construction algorithm is as follows: we start by looping through all primitives in the scene and getting a bbox that surrounds all of these. We construct a new BVHNode from this bbox. Our base case is if the new node has less than “max_leaf_size” primitives - then we return. Otherwise we know we have to split so we find the longest axis among x, y, and z. We chose this as the heuristic because if we’re splitting on the longest axis, we know that we are making the subsequent bounding boxes as even as possible.Once we find this axis, we sort the primitives by smallest to largest value in that axis, and find the median/middle primitive that we split on. THIS MAY BE EXTRA CREDIT, SINCE IMPLEMENTING THE MEDIAN METHOD WAS LISTED. Finally, we set the left node of the new BVHNode we created by recursively calling our construction algorithm on the primitives from “start” to “middle”, and do the same for the right node but on the primitives from “middle” to “end”. 
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../xcode/planck.png" width="480px" />
+                    <figcaption align="middle">Planck's face with BVH!</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../xcode/CBLucy.png" width="480px" />
+                    <figcaption align="middle">Lucy with BVH!</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>
+            Comparing cow.dae, with and without BVH acceleration, with BVH acceleration rendering finishes in 0.2092s and without BVH acceleration rendering finished in 31.5998s. This is a huge speedup. We see a similar speedup with teapot.dae, which finishes in 11.1150s before BVH acceleration and 0.1321s after. This is a great speedup. We expected this speedup from BVH acceleration because we now can traverse a tree of bounding boxes and from the leaf bounding box go through every sample, instead of every checking intersection with every sample.
+        </p>
+
+        <h2 align="middle">Part 3: Direct Illumination</h2>
+        <p>
+            For estimating direct lighting without importance, we simply sample a wj (a vector in this case, or a solid angle) from the entire 2pi steradians hemisphere, get the light emissions from the intersection between the ray which points in that direction (with origin hitpoint), and add to our running sum. We divide by num_samples and multiply by 2pi (uniform pdf) to get the monte carlo estimate of direct lighting at the hit point.
+        </p>
+        <p>
+            For importance sampling, we perform a similar procedure BUT we iterate through direct lights only, construct a Monte Carlo lighting estimate for the light contribution from the current light source (where sample incoming light rays are ONLY taken from the current light source), and sum up all of these monte carlo estimates (resulting intuitively in the definite integral over the surface of all lights, and how they contribute to the given hit point). This reduces "dark" noise because samples are only taken from rays which actually transmit light. Moreover, for the monte carlo estimate for a given light, we sum up the lighting contribution / value of pdf for that point, since our pdf is no longer uniform and proportion to where the light source actually is. We make sure to divide by the number of samples for that light source (which would be 1 if it is a point light source).
+        </p>
+
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_l1.png" width="480px" />
+                    <figcaption align="middle">1 light ray</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_l4.png" width="480px" />
+                    <figcaption align="middle">4 light rays</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_l16.png" width="480px" />
+                    <figcaption align="middle">16 light rays</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_l64.png" width="480px" />
+                    <figcaption align="middle">64 light rays</figcaption>
+                </tr>
+            </table>
+        </div>
+
+        <p>A bug we ran into was accidentally converting wi to object coordinates instead of doing nothing (leaving it in world coordinates) when creating a ray, which we fixed.
+        </p>
+        <p>As we increase the light ray parameter, shadows are less noisy and appear more smooth (as opposed to discrete), because we are able to find more points that are in shadow. Additionally, the edges of the shadow because lower frequency, because some light does hit near the edges (making shadows more diffuse in a sense).
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part3_direct_lighting.png" width="480px" />
+                    <figcaption align="middle">With uniform hemisphere sampling</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part3_importance_lighting.png" width="480px" />
+                    <figcaption align="middle">With importance sampling</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>There is a STARK difference between important sampling and uniform hemisphere sampling, shown by much greater noise levels in uniform. This is because some samples of light contribution do not even come from a source emitting light, resulting in various black pixels. Moreover, shadows appear much smoother in the importance sampling picture because more actual light is being sampled. To continue, the skin of the rabbit itself has smoother transitions between bright and dark in importance sampling, once again because more samples of real emitted light are taken. The background in addition to the subject is less noisy in important sampling, because the direct light source illuminates the entire room (as well as the walls), and we want to make sure we sample from the lighting source only. Finally, one can see the edges of walls more clearly (they are less noisy)  because real light is actually illuminating them in importance sampling.
+        </p>
+        
+
+        <h2 align="middle">Part 4: Global Illumination</h2>
+        <p>Indirect lighting was implemented via the recursive path tracing algorithm discussed in lecture. If the depth of the rays being traced is 0 (day simply hits an object in the scene), we only return the emitted light by the object (light sources have nonzero emitted light values). For depth 1, we hit an object in the scene and also trace another ray to retrieve the light reflected off the initial object (the light reflected will be coming from a direct light sources). If depth is greater than 1, this direct lighting is always a baseline. When depth > 1, we always perform at least 1 indirect bounce of light. For example, the initial ray hits the scene, then direct lighting is calculated for that object, then we recursively call the path tracing algorithm using a randomly generated ray (cosine weighted across the hemisphere) and its intersection point. The light incoming from the recursive call will also be reflected by the initial object (and the recursive object could be reflecting light off another indirect object, which in turn is could be reflecting light from a direct light source). Remember that the goal of path tracing is to simulate infinite bounces to get the L_out for the current object (since the incoming light could be the L_out from another object). So, not only do we get zero-bounce illumination (which we call elsewhere in estimate global illumination), we get 1 bounce illumination as well as a > 1 bounce (from a light source to a intermediate point to the current point). This simulates Le +  K(Le) + K^2(Le)... We use Russian roulette estimation to simulate infinite bounces of light and terminate recursion (so it doesn't go on forever), but end the recursion early (but it is still an unbiased estimator of an infinite integral). We make sure we don't go past our maximum ray depth.
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../xcode/bunny.png" width="480px" />
+                    <figcaption align="middle">First image with global illumination</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_global2.png" width="480px" />
+                    <figcaption align="middle">Second image with global illumination</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_global3.png" width="480px" />
+                    <figcaption align="middle">Third image with global illumination</figcaption>
+                </tr>
+            </table>
+        </div>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_direct.png" width="480px" />
+                    <figcaption align="middle">Including zero bounce and one bounce radiance (direct)</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_indirect.png" width="480px" />
+                    <figcaption align="middle">Everything except zero bounce and one bounce radiance (indirect)</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>While direct illumination only features reflected light from a source whose emission is nonzero (hence why there are such dark lighting in the image, since indirect images are not shown). The indirect lighting picture features more diffuse and much softer lighting (because energy dissipates over multiple bounces). One notable difference is it does not include the light fixture at the top because it does not include zero bounce radiance.
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_depth0.png" width="480px" />
+                    <figcaption align="middle">Global illumination with depth 0</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_depth1.png" width="480px" />
+                    <figcaption align="middle">Global illumination with depth 1</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_depth2.png" width="480px" />
+                    <figcaption align="middle">Global illumination with depth 2</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_depth3.png" width="480px" />
+                    <figcaption align="middle">Global illumination with depth 3</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_again_depth100.png" width="480px" />
+                    <figcaption align="middle">Global illumination with depth 100</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>The most visible attribute while we increase ray depth is that shadows are becoming more softer (meaning more light is coming through multiple bounces to a point in the scene).
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_sample1.png" width="480px" />
+                    <figcaption align="middle">Samples per pixel is 1</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_sample2.png" width="480px" />
+                    <figcaption align="middle">Samples per pixel is 2</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_sample4.png" width="480px" />
+                    <figcaption align="middle">Samples per pixel is 4</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_sample8.png" width="480px" />
+                    <figcaption align="middle">Samples per pixel is 8</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_sample16.png" width="480px" />
+                    <figcaption align="middle">Samples per pixel is 16</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_sample64.png" width="480px" />
+                    <figcaption align="middle">Samples per pixel is 64</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part4_sample1024.png" width="480px" />
+                    <figcaption align="middle">Samples per pixel is 1024</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>As we increase our sample rate, the image becomes less noisy, because our pixel lighting Monte Carlo estimator becomes more precise with additional samples.
+        </p>
+        <p>One bug we encountered was we were accidentally dividing the lighting by the continuation probability in places it was not used, which was giving us a brighter image than we should have had, but we fixed this.
+        </p>
+        <p>Another part of part 4 that was not previously mentioned was that we also allowed sample diffuse bsdf to sample wi and provide a pdf value.
+        </p>
+
+        <h2 align="middle">Part 5: Adaptive Sampling</h2>
+        <p>In sample_pixel, we stop generating light samples for a pixel when the pixel's radiance has "converged". In other words, some pixels are more difficult to render and converge later than others. We break from the for loop when I =  the samples' standard deviation / sqrt(num samples so far for the pixel) is less than or equal to maxTolerance * the current mean of the samples. I will be smaller when  variance is lower, or the number of samples is high, intuitively. We calculate s1 = sum of illuminances so far for pixel samples, s2= summation of illuminances squared and use them to calculate the current mean and variance so far, as detailed in the spec. The differences in sampling per pixel is shown in the heatmap given, where tougher scenes need more samples. 
+        </p>
+        <p>
+            One bug we encountered was not converting the number of samples so far to a float, which resulted in instant convergence because the means were zero, but we fixed this by casting all ints to float.
+        </p>
+
+<div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part5.png" width="480px" />
+                    <figcaption align="middle">Adaptive sampling rendered image</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="../cmake-build-debug/part5_rate.png" width="480px" />
+                    <figcaption align="middle">Adaptive sampling sample rate image</figcaption>
+                </tr>
+            </table>
+        </div>
+
+
+    <h2 align="middle">A Few Notes On Webpages</h2>
+        <p>Here are a few problems students have encountered in the past. You will probably encounter these problems at some point, so don't wait until right before the deadline to check that everything is working. Test your website on the instructional machines early!</p>
+        <ul>
+        <li>Your main report page should be called index.html.</li>
+        <li>Be sure to include and turn in all of the other files (such as images) that are linked in your report!</li>
+        <li>Use only <em>relative</em> paths to files, such as <pre>"./images/image.jpg"</pre>
+        Do <em>NOT</em> use absolute paths, such as <pre>"/Users/student/Desktop/image.jpg"</pre></li>
+        <li>Pay close attention to your filename extensions. Remember that on UNIX systems (such as the instructional machines), capitalization matters. <pre>.png != .jpeg != .jpg != .JPG</pre>
+        <li>Be sure to adjust the permissions on your files so that they are world readable. For more information on this please see this tutorial: <a href="http://www.grymoire.com/Unix/Permissions.html">http://www.grymoire.com/Unix/Permissions.html</a></li>
+        <li>And again, test your website on the instructional machines early!</li>
+</div>
+</body>
+</html>
+
+
+
+
