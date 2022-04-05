@@ -1,7 +1,166 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Project 3-2 here
-	</body>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>  
+    div.padded {  
+      padding-top: 0px;  
+      padding-right: 100px;  
+      padding-bottom: 0.25in;  
+      padding-left: 100px;  
+    }  
+  </style> 
+<title>Srinivasan Madhavan and Aditya Prasad  |  CS 184</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="style.css" media="screen" />
+</head>
+<body>
+<br />
+<h1 align="middle">Assignment 3-2: PathTracer</h1>
+    <h2 align="middle">Srinivasan Madhavan and Aditya Prasad</h2>
+
+    <div class="padded">
+        <p>In the real world, a mirror does not interact with light the same way a piece of plastic does. That would be ludicrous! So, how exactly do we encode this information in a computer? How do we make materials physically accurate in terms of lighting? Well, we use Bidirectional Scattering Distribution Functions (BSDF's). It is similar to a BRDF, which determines numerically how much light is reflected, given an incoming direction, to an outgoing direction. BSDF also accounts for phenomena such as refraction. In part 1, we implement perfect specular reflection as well as refraction, and combine these using an algorithm to render glass materials. What about cool camera effects, like depth of field? Ultimately, we are trying to simulate what a camera can see (and our eyes)! Well, instead of using a pinhole camera, we use a thin lens to simulate the eyes, making sure that not everything is in focus in part 4! Path tracing was only the beginning, as materials need to behave properly given these rays of light. We've come such a long way :)
+        </p>
+
+    <h2 align="middle">Part 1: Mirror and Glass Materials</h2>
+        <p>We had 4 tasks in part 1. First, we implemented the reflect function, which takes in an incident vector and returns an output vector that is reflected across the normal vector to the surface. We followed the perfect specular reflection equation, wo=-wi + 2(dot(wi, n)) * n, to compute the reflection. We didn’t encounter any problems with this part.
+        </p>
+        <p>Next we implemented the MirrorBSDF::sample_f() function, where we just called the previously written reflect function and assigned the pdf to 1. We then returned reflectance / abs_cos_theta(*wi). This was straightforward, we had no problems with this part.
+        </p>
+        <p>Next we implemented refraction, so we implemented the BSDF::refract() function. This part was more complicated than the previous two because we have to identify whether the incoming light ray was entering or exiting the object by checking the sign of its z component (entering if z > 0, exiting else). Additionally, we have to check whether the ray is actually refracting or total internal reflection will occur, which involves checking if the expression within the square root in the outgoing light ray’s z component is negative (if so, total internal reflection). This part was not difficult to implement since the spec was very clear here, but there were many cases that we had to keep track of.
+        </p>
+        <p>Finally we implemented glass material, so we wrote the GlassBSDF::sample_f() function. This part was the most complicated part since the spec was missing one crucial detail and it overall took the longest to write. We first check if there is total internal reflection, and if there is, we reflect the input vector, assign the pdf to 1, and return the reflectance with compensation by abs_cos_theta(*wi). Otherwise, we compute R0 as part of Schlick’s approximation as ((1-ior) / (1 + ior))^2, and then compute Schlick’s reflection coefficient R as R0 + (1 - R0) * (1 - cos(wo))^5. This gave us a lot of grief, since Wikipedia told us to use cos and the spec did not expand on this, but we actually had to use abs_cos_theta. We spent many hours debugging and isolated the problem to computing R, but had to go to office hours to finally solve this. Once we compute R, we coin flip with it, and if true, we reflect. Otherwise, we refract.
+        </p>
+        <p>Renders and Analysis for Part 1: 
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="images/spheres_depth0.png" width="480px" />
+                    <figcaption align="middle">CBspheres, depth 0</figcaption>
+                    <td align="middle">
+                    <img src="images/spheres_depth1.png" width="480px" />
+                    <figcaption align="middle">CBspheres, depth 1</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="images/spheres_depth2.png" width="480px" />
+                    <figcaption align="middle">CBspheres, depth 2</figcaption>
+                    <td align="middle">
+                    <img src="images/spheres_depth3.png" width="480px" />
+                    <figcaption align="middle">CBspheres, depth 3</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="images/spheres_depth4.png" width="480px" />
+                    <figcaption align="middle">CBspheres, depth 4</figcaption>
+                    <td align="middle">
+                    <img src="images/spheres_depth5.png" width="480px" />
+                    <figcaption align="middle">CBspheres, depth 5</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="images/spheres_depth100.png" width="480px" />
+                    <figcaption align="middle">CBspheres, depth 100</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>In CBspheres.dae, for depth 0, no bounces occur, so only emitted light from a direct light is shown, and everything else in the scene is black. For depth 1, we see the left sphere reflecting the direct light source , but in the right sphere, some rays enter the sphere due to refraction but disappear due to the depth limit, explaining the patchiness of the reflection on the right sphere. In the depth 2 image, the left sphere now displays the black right sphere, the colored walls, and the black ceiling as in the depth 1 image, but the bottom of the sphere is still black. Additionally, color is starting to form on the right sphere as light is reflecting from the walls, and the shadow underneath the balls becomes more diffuse and colored because more light is incident on it, especially light from the walls. In the depth 3 image, light can now enter and exit through the right sphere so we see real refraction effects, especially from the blue wall. Additionally, the left sphere is able to reflect its previous shadow now so its bottom is no longer black. Moreover, the right sphere’s shadow now has a white blob within it, which is coming from light that is entering and exiting through the sphere and hitting the shadow location. In the depth 4 image, the left sphere displays a blue right sphere because the right sphere began displaying color in the previous depth. Additionally, there is a bright spot on the blue wall now, because light reflects off the left sphere, enters the right sphere, exits the right sphere, and then is incident at that location on the blue wall. In the depth 5 image, the differences are negligible but the right sphere appears a bit brighter, since there is more indirect lighting. Finally, in the depth 100 image, the difference is negligible compared to the depth 5 image but shadows are even more diffuse and the right sphere is a bit brighter also.
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="images/spheres.png" width="480px" />
+                    <figcaption align="middle">CBspheres.dae</figcaption>
+                    <td align="middle">
+                    <img src="images/lucy_result.png" width="480px" />
+                    <figcaption align="middle">CBlucy.dae</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="images/dragon_result.png" width="480px" />
+                    <figcaption align="middle">CBdragon.dae</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>For the images we were told to describe, the CBdragon is reflective so we see bright spots and dark spots along it. The CBlucy image is glass so it appears like glass, with some coloration, and both reflective and refractive aspects. The CBspheres image has one mirror sphere and one glass sphere, so we see both mirror and glass effects.
+        </p>
+
+
+        <h2 align="middle">Part 4: Depth of Field</h2>
+        <p>In part 4, we generate rays from our camera appropriately for a thin lens. To do so, we use the following facts featured on the spec: a ray passing through the center of a thin lens will not bend, and rays from the same point in the focal plane will meet at the same point in the image plane. These 2 considerations allow us to draw the picture featured in the spec, where the point in focus is the same for both rays, so the center ray (red one with no refraction) will meet at the same point as the yellow ray (which is refracted) on the image plane. We will be calculating the blue ray. We start off with our code from part 1 of project 3-1 to create the red ray (not bent) ray. We then sample a point on the lens given the random r and theta provided to us. We calculate the point of focus by calculating how much we need to scale the current ray to end up at z=-focal distance (-focal distance / pixel z value). To calculate the blue ray, we use the properties of vector addition (subtraction) and perform -pLens + pFocus. We create the ray and normalize as in project 3-1.
+        </p>
+        <p>We ran into two bugs with setting up the camera vector: we forgot to subtract 0.5 from x and y and also scale them to the proper dimensions, which were fixed by looking at project 3-1. 
+        </p>
+        <p>The pinhole camera model is too simplistic of a description for the human eye, whereas a thin lens model can produce effects like depth of field due to attributes like focal length and refraction (although we ignore thickness of the lens in this project). Focal length is defined as the distance between the center of the thin lens and the point at which 2 parallel light rays meet after refracting through the lens. Due to the properties of geometric optics (for example, the lens equation), only points in a scene which are on a plane focal distance away from the lens are in focus. This is different from a pinhole camera because NOT everything is in focus. To continue, while a pinhole camera model keeps light ray direction intact when one shoots through it, a thin lens refracts rays (bends them in a different direction) due to Snell's law. Thin lens cameras can cause a "circle of confusion," a result of a cone of light rays which do not come into focus (they do not originate from the focal plane). Additionally, since a pinhole does not use a lens, aperture (opening of a lens, which can be wider or smaller) is unique in this scenario.
+        </p>
+        <p>Render Comparisons and Analysis for Part 4:
+        </p>
+        <div align="center">
+            <table style="width=100%">
+                <tr>
+                    <td align="middle">
+                    <img src="images/dragon_focus2.9.png" width="480px" />
+                    <figcaption align="middle">Dragon with focal distance 2.9</figcaption>
+                    <td align="middle">
+                    <img src="images/dragon_focus3.2.png" width="480px" />
+                    <figcaption align="middle">Dragon with focal distance 3.2</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="images/dragon_focus3.5.png" width="480px" />
+                    <figcaption align="middle">Dragon with focal distance 3.5</figcaption>
+                    <td align="middle">
+                    <img src="images/dragon_focus3.8.png" width="480px" />
+                    <figcaption align="middle">Dragon with focal distance 3.8</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>As we can see, as we increase the focal distance, the image focuses on parts of the scene which are further away from the camera (as those parts will be closer to the plane of focus described in the spec). In the first image (focal distance 2.9), the snout of the dragon is focused, in the second (focal distance 3.2) its neck and back of its head are focused, in the third (focal distance 3.5) the upper rear end is focused, and in the last (focal distance 3.8) the tail is focused.
+        </p>
+        <div>
+            <table>
+                <tr>
+                    <td align="middle">
+                    <img src="images/dragon_ap0.02.png" width="480px" />
+                    <figcaption align="middle">Dragon with aperture 0.02</figcaption>
+                    <td align="middle">
+                    <img src="images/dragon_ap0.09.png" width="480px" />
+                    <figcaption align="middle">Dragon with aperture 0.09</figcaption>
+                </tr>
+                <tr>
+                    <td align="middle">
+                    <img src="images/dragon_ap0.16.png" width="480px" />
+                    <figcaption align="middle">Dragon with aperture 0.16</figcaption>
+                    <td align="middle">
+                    <img src="images/dragon_ap0.23.png" width="480px" />
+                    <figcaption align="middle">Dragon with aperture 0.23</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>Moreover, as we increase the aperture, the depth of field reduces. One way to think about this is that if we have a smaller aperture, then the camera more so represents the pinhole model, which keeps everything in focus. We kept the focal distance constant, so the head of the dragon was always in focus. In the first image, the aperture was low (0.02) so the depth of field was large and all of the dragon is clear. In the second image (aperture 0.09), the dragon’s head is clear, but the rest of its body and the foreground are blurred. In the third image (aperture 0.16), the rest of its body and the foreground are more blurred. In the fourth image (aperture 0.23), only a sliver of the dragon’s head is clear, and the rest of the image is heavily blurred.
+        </p>
+        <div>
+            <table>
+                <tr>
+                    <td align="middle">
+                    <img src="images/dragon_result_pt4.png" width="1080px" />
+                    <figcaption align="middle">Beautiful dragon</figcaption>
+                </tr>
+            </table>
+        </div>
+        <p>We also rendered the CBdragon with the same camera settings as before, at 1920x1080 resolution, max ray depth 25, aperture 0.11, and focal distance 3.1. This image demonstrates the POWER of computer graphics, including many of the features in Project 3 - mirror material, shadows, path tracing, and depth of field.
+        </p>
+        <h2 align="middle">Partner Description</h2>
+        <p>We worked together on the project primarily using Zoom. Srinivasan served as the driver (actually typing the code after discussion) for most of the project because of Aditya's hand condition. We split the writeup in half. We worked very well together and found the mathematical descriptions of a thin lens particularly interesting in part 4. We learned that while thin lenses do not have all objects in focus, pinhole cameras do. Everything went smoothly as usual.
+        </p>
+
+</div>
+</body>
 </html>
+
+
+
+
